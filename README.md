@@ -1,10 +1,28 @@
-# Homelab NAS — Infrastructure & Automation
+# Homelab
 
-A self-hosted media server and home automation platform built on [Unraid](https://unraid.net/), running on a **TerraMaster F6-424 Max** (Intel Core i5-1235U, 64 GB RAM, 6-bay NAS). This repo contains all the custom automation code, Docker configuration, and management scripts that run the stack.
+Notes and code from my home infrastructure. Running Unraid on a TerraMaster F6-424 Max, with a Docker stack for media, networking, automation, and a few personal projects. Maintained for fun and to avoid paying for services I can host myself.
 
 ---
 
-## Stack Overview
+## Hardware
+
+| Component | Spec |
+|---|---|
+| **NAS** | TerraMaster F6-424 Max |
+| **CPU** | Intel Core i5-1235U (12th gen, Alder Lake-P) |
+| **GPU** | Intel Iris Xe (VA-API hardware transcoding for Plex) |
+| **RAM** | 64 GB DDR4 |
+| **Storage** | Targeting ~100 TB across 6 bays |
+| **Boot** | 32 GB USB flash (Unraid) |
+| **Network** | 2.5 GbE |
+
+**Migration note:** Moved from a UGREEN DXP4800 after ongoing N100 hardware lockups made it unreliable as a 24/7 server. The TerraMaster has been stable.
+
+---
+
+## Docker Stack
+
+Everything runs in Docker, managed through Unraid. All containers run on a custom bridge network (`medianet`) with static IPs.
 
 | Category | Tools |
 |---|---|
@@ -16,14 +34,12 @@ A self-hosted media server and home automation platform built on [Unraid](https:
 | **Networking** | Gluetun (ProtonVPN WireGuard), Tailscale, AdGuard Home |
 | **AI** | Gemini 2.5 Flash (primary), Claude (fallback/secondary) |
 
-All containers run on a custom Docker bridge network (`medianet`) with static IPs. qBittorrent and the \*arr stack share Gluetun's network namespace for VPN-routed traffic.
-
 ---
 
 ## Repository Structure
 
 ```
-homelab-nas/
+homelab/
 ├── apps/
 │   ├── nas-bot/          # Discord bot — natural language NAS control
 │   ├── guardian/         # Twice-daily health digest + auto-remediation
@@ -40,7 +56,7 @@ homelab-nas/
 
 ### `nas-bot` — AI-Powered Discord Bot
 
-A Discord bot that lets you control the entire NAS with natural language. Built using **Gemini function calling** — Gemini decides which tools to invoke and generates all responses. Claude serves as a fallback.
+A Discord bot I built to control the NAS from my phone. Accepts natural language — ask it to check stuck torrents, surface alerts, search for something, or tell you what's currently streaming. Built using **Gemini function calling** so Gemini decides which tools to invoke and writes all responses. Claude serves as a fallback.
 
 **Capabilities:**
 - Check download queue, speed, VPN status
@@ -50,7 +66,7 @@ A Discord bot that lets you control the entire NAS with natural language. Built 
 - Check active Plex streams
 - Weekly Sunday digest of recently added content
 
-**Tech:** Python 3, discord.py, Gemini 2.5 Flash function calling, Anthropic Claude API, zero external dependencies beyond the AI SDKs.
+**Tech:** Python 3, discord.py, Gemini 2.5 Flash function calling, Anthropic Claude API, no external dependencies beyond the AI SDKs.
 
 ```bash
 cd apps/nas-bot
@@ -84,7 +100,7 @@ Runs at **8 AM and 8 PM** via cron. Performs auto-remediation first, then posts 
 cd apps/guardian
 cp .env.example .env
 docker build -t nas-guardian .
-# runs on a schedule; or manually:
+# runs on a schedule; or trigger manually:
 docker run --rm --env-file .env -v /var/run/docker.sock:/var/run/docker.sock nas-guardian python guardian.py --digest
 ```
 
@@ -92,7 +108,7 @@ docker run --rm --env-file .env -v /var/run/docker.sock:/var/run/docker.sock nas
 
 ### `readarr-server` — Local BookInfo Metadata API
 
-A TypeScript/Bun server that provides Readarr's custom metadata source with book data from a local PostgreSQL database (seeded from OpenLibrary). Eliminates dependency on external metadata APIs for ebook management.
+A TypeScript/Bun server that provides Readarr's custom metadata source with book data from a local PostgreSQL database seeded from OpenLibrary. Eliminates dependency on external metadata APIs for ebook management.
 
 ```bash
 cd apps/readarr-server
@@ -104,13 +120,13 @@ bun run src/index.ts
 
 ### `claude-bot` — Claude Discord Assistant
 
-A minimal Discord bot backed by Claude claude-sonnet-4-6 for general Q&A and NAS assistance. Reads secrets from environment variables.
+A minimal Discord bot backed by Claude for general Q&A and NAS assistance. Started as a quick experiment with the Anthropic API; the nas-bot grew out of this.
 
 ---
 
 ## Boot Scripts
 
-Located in `boot-scripts/` — these run on the Unraid host at startup:
+These run on the Unraid host at startup (`/boot/config/scripts/`):
 
 | Script | Purpose |
 |---|---|
@@ -119,15 +135,14 @@ Located in `boot-scripts/` — these run on the Unraid host at startup:
 | `docker-ordered-start.sh` | Starts containers in dependency order (Gluetun first, then network-dependent containers) |
 | `boot-crash-alert.sh` | Posts a Discord alert if the system rebooted unexpectedly |
 | `backup-config.sh` | Tarballs `/boot/config` nightly to appdata |
-| `sonarr-proxy.py` | Lightweight HTTP proxy giving SABnzbd access to Sonarr inside Gluetun's netns |
-| `nas-bot.py` | Runs the NAS bot directly on host (alternative to containerized version) |
+| `sonarr-proxy.py` | Lightweight HTTP proxy giving SABnzbd access to Sonarr inside Gluetun's network namespace |
 | `update-claude.sh` | Auto-updates the Claude Code CLI |
 
 ---
 
 ## Management Scripts
 
-`management-scripts/` contains ~90 PowerShell scripts for day-to-day operations. Highlights:
+~90 PowerShell scripts for day-to-day operations. Highlights:
 
 | Script | Purpose |
 |---|---|
@@ -138,36 +153,30 @@ Located in `boot-scripts/` — these run on the Unraid host at startup:
 | `cleanup-junk-files.ps1` | Remove sample files, extras, and garbage from media dirs |
 | `find-untracked-media.ps1` | Find media files not tracked by Sonarr/Radarr |
 | `reannounce-all.ps1` | Force-reannounce all torrents to trackers |
-| `sync-qbittorrent-port.ps1` | Manual VPN port sync |
 | `daily-status.ps1` | Posts a daily Discord status report |
 | `monitor-containers.ps1` | Container health monitoring with Discord alerts |
 
-Scripts use `$env:QBIT_USER` / `$env:QBIT_PASS` for qBittorrent credentials.
-
 ---
 
-## Key Design Decisions
+## Design Choices
 
-**VPN network namespace sharing** — Rather than routing all traffic through the VPN, only qBittorrent and the \*arr indexer traffic (Prowlarr) run inside Gluetun's network namespace via `--net=container:Gluetun`. Plex, SABnzbd, and bots run normally. This prevents the VPN from throttling Plex streams or interfering with Usenet.
+**VPN container wrap instead of host-level VPN** — Keeps the rest of the traffic outside the tunnel. qBittorrent and Prowlarr run inside Gluetun's network namespace via `--net=container:Gluetun`. Plex, SABnzbd, and bots run normally. Prevents the VPN from throttling streams or interfering with Usenet.
 
-**Symlinks for cross-seed** — Unraid's shfs spans multiple physical disks, so hardlinks fail across mounts. cross-seed uses symlinks (`linkType: "symlink"`) into a dedicated `/data/cross-seeds` directory outside the main data dirs.
-
-**No mock dependencies** — The guardian and nas-bot communicate directly with live service APIs. Health checks test real endpoints rather than mocked state.
+**Symlinks for cross-seed** — Unraid's shfs spans multiple physical disks, so hardlinks fail across mounts. cross-seed uses symlinks into a dedicated `/data/cross-seeds` directory outside the main data dirs.
 
 **Gemini function calling over prompt engineering** — The nas-bot uses Gemini's native function calling rather than prompt-engineered tool use, which gives more reliable tool selection and cleaner response generation.
 
+**Unraid over TrueNAS** — Flexibility of mixed-size drives matters more than ZFS features for my use case.
+
+**Plex and Jellyfin both running** — Plex for the family (no retraining needed), Jellyfin for personal use and as an open-source hedge.
+
 ---
 
-## Hardware
+## What I'd Do Differently
 
-| Component | Spec |
-|---|---|
-| **NAS** | TerraMaster F6-424 Max |
-| **CPU** | Intel Core i5-1235U (12th gen, Alder Lake-P) |
-| **GPU** | Intel Iris Xe (VA-API hardware transcoding for Plex) |
-| **RAM** | 64 GB DDR4 |
-| **Boot** | 32 GB USB flash (Unraid) |
-| **Network** | 2.5 GbE |
+Debugged the UGREEN N100 lockups too long before migrating. If you're seeing recurring hardware lockups on an N100-class NAS, don't chase them — switch platforms.
+
+Started on the Unraid trial and purchased the Unleashed license; would probably have gone straight to Lifetime knowing how long I've been at this.
 
 ---
 
