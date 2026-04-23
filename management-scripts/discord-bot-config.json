@@ -1,0 +1,19 @@
+{
+  "botToken": "${DISCORD_BOT_TOKEN}",
+  "commandPrefix": "!",
+  "allowedChannelIds": [],
+  "webhookUrl": "${DISCORD_WEBHOOK_URL}",
+  "cooldownSeconds": 3,
+  "adminRoleNames": ["Admin", "Moderator"],
+  "enabledCommands": {
+    "ping": true,
+    "help": true,
+    "status": true,
+    "services": true,
+    "jellyfin": true,
+    "downloads": true,
+    "restart": true,
+    "logs": true
+  },
+  "logLevel": "INFO"
+}

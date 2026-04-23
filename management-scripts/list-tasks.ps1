@@ -1,0 +1,1 @@
+Get-ScheduledTask | Where-Object { $_.TaskPath -eq '\' -and $_.TaskName -notmatch 'Microsoft|Windows|User|Google|Update|OneDrive|MsCtfMonitor|Adobe' } | Select-Object TaskName, State | Format-Table -AutoSize

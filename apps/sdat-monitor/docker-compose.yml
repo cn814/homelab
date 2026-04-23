@@ -1,0 +1,15 @@
+services:
+  sdat-monitor:
+    build: .
+    container_name: sdat-monitor
+    restart: unless-stopped
+    environment:
+      - EMAIL_FROM=cnealen@gmail.com
+      - EMAIL_TO=cnealen@gmail.com
+      - EMAIL_PASS=fyrafxyuwvapqfln
+    volumes:
+      - ./data:/data    # persists last_state.json between restarts
+    # Optional: override cron schedule at build time
+    # build:
+    #   args:
+    #     CRON_SCHEDULE: "0 8 * * *"   # daily at 8am

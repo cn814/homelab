@@ -1,0 +1,31 @@
+# Secrets
+.env
+*.env
+*.key
+*credentials*
+*-credentials*
+
+# Unraid config files with sensitive data
+boot-scripts/go.sh
+
+# Logs
+*.log
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Node
+node_modules/
+dist/
+
+# Bun
+.bun/
+
+# Docker
+*.tar.gz
+
+# OS
+.DS_Store
+Thumbs.db
