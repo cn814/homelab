@@ -621,7 +621,7 @@ def check_all():
 
 # ── Gemini summary ────────────────────────────────────────────────────────────
 
-def gemini_summarise(findings, actions_taken):
+def ai_summarise(findings, actions_taken):
     vpn   = findings.get("vpn", {})
     qbit  = findings.get("qbit", {})
     sab   = findings.get("sabnzbd", {})
@@ -740,7 +740,7 @@ if __name__ == "__main__":
     # Phase 3: summarise and post (digest runs only)
     print(f"[{datetime.now()}] Phase 3: Claude + Discord")
     try:
-        summary = gemini_summarise(findings, actions_taken)
+        summary = ai_summarise(findings, actions_taken)
         print(f"  summary: {summary}")
         post_discord(summary)
         print(f"[{datetime.now()}] Done — posted to #nas-digest")
