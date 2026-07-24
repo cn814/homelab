@@ -59,8 +59,8 @@ UNPACKARR_XML  = "/boot/config/plugins/dockerMan/templates-user/my-unpackarr.xml
 READARR_URL  = "http://localhost:8787"
 READARR_KEY  = os.environ["READARR_KEY"]
 
-GEMINI_API_KEY = os.environ["GEMINI_API_KEY"]
-GEMINI_MODEL   = "gemini-2.5-flash"
+ANTHROPIC_API_KEY = os.environ["ANTHROPIC_API_KEY"]
+ANTHROPIC_MODEL   = "claude-haiku-4-5"
 
 DISK_WARN_PCT  = 90
 MISSING_THRESHOLD = 0.50   # delete SABnzbd job if >50% of articles are missing
@@ -667,13 +667,20 @@ def gemini_summarise(findings, actions_taken):
         + "\n".join(ctx)
     )
 
-    url = (f"https://generativelanguage.googleapis.com/v1beta/models/{GEMINI_MODEL}"
-           f":generateContent?key={GEMINI_API_KEY}")
-    payload = {"contents": [{"parts": [{"text": prompt}]}]}
+    url = "https://api.anthropic.com/v1/messages"
+    payload = {
+        "model": ANTHROPIC_MODEL,
+        "max_tokens": 1024,
+        "messages": [{"role": "user", "content": prompt}],
+    }
     for attempt in range(3):
         try:
-            resp = http_post(url, payload)
-            return resp["candidates"][0]["content"]["parts"][0]["text"].strip()
+            resp = http_post(url, payload, {
+                "x-api-key": ANTHROPIC_API_KEY,
+                "anthropic-version": "2023-06-01",
+            })
+            return "".join(b["text"] for b in resp["content"]
+                           if b.get("type") == "text").strip()
         except Exception as e:
             if attempt == 2:
                 raise
@@ -731,7 +738,7 @@ if __name__ == "__main__":
     print(f"  issues: {findings.get('issues', [])}")
 
     # Phase 3: summarise and post (digest runs only)
-    print(f"[{datetime.now()}] Phase 3: Gemini + Discord")
+    print(f"[{datetime.now()}] Phase 3: Claude + Discord")
     try:
         summary = gemini_summarise(findings, actions_taken)
         print(f"  summary: {summary}")
